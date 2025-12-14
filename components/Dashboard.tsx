@@ -272,7 +272,9 @@ export function Dashboard() {
                         {/* Social Links */}
                         <div className="flex items-center gap-2 mt-2">
                             <a
-                                href="#"
+                                href="https://github.com/0x0funky/TradeVoyage"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                                 title="GitHub"
                             >

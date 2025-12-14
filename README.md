@@ -28,7 +28,7 @@
 
 ## 📸 截圖預覽
 
-![Platform Preview](paulwei_realplatform.gif)
+![Platform Preview](TradeVoyage.gif)
 
 ---
 
@@ -43,8 +43,8 @@
 
 1. **Clone 專案**
 ```bash
-git clone https://github.com/0x0funky/paulwei-trading-analytics
-cd paulwei-trading-analytics
+git clone https://github.com/0x0funky/TradeVoyage
+cd TradeVoyage
 ```
 
 2. **安裝依賴**
