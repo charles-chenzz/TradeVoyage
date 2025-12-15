@@ -1,4 +1,4 @@
-# TradeVoyage 🚀
+# TradeVoyage
 
 ![TradeVoyage Banner](public/banner.png)
 
@@ -10,34 +10,36 @@
 
 **TradeVoyage** - 您的加密貨幣交易旅程分析平台。整合多家中心化交易所（CEX），透過視覺化圖表與詳細統計數據，深入了解您的交易策略與倉位管理。支援 **GPT-5.2、Claude Sonnet 4、Gemini 3 Pro** 等 21 款最新 AI 模型。
 
-## ✨ v2.0 新功能
+[English Version](README_EN.md)
 
-- 🏦 **多交易所支援** - 支援 BitMEX、Binance Futures、OKX、Bybit 等多家交易所
-- 🔑 **Read-Only API 導入** - 直接在平台上使用唯讀 API 安全下載您的交易數據
-- 🤖 **AI 交易分析** - 整合 21 款 AI 模型（GPT-5.2、Claude Sonnet 4、Gemini 3 Pro 等），智能分析您的交易表現
-- 📊 **優化倉位計算** - 更精準的倉位開平邏輯與 PnL 計算
-- 📈 **優化圖表顯示** - 改進 K 線圖與交易標記顯示效果
-- 🌓 **深色/淺色模式** - 支援主題切換，保護您的眼睛
-- 🎨 **全新品牌設計** - 更現代化的 UI 與交易所圖標
+## v2.0 新功能
 
-## 🌟 核心功能
+- **多交易所支援** - 支援 BitMEX、Binance Futures、OKX、Bybit 等多家交易所
+- **Read-Only API 導入** - 直接在平台上使用唯讀 API 安全下載您的交易數據
+- **AI 交易分析** - 整合 21 款 AI 模型（GPT-5.2、Claude Sonnet 4、Gemini 3 Pro 等），智能分析您的交易表現
+- **優化倉位計算** - 更精準的倉位開平邏輯與 PnL 計算
+- **優化圖表顯示** - 改進 K 線圖與交易標記顯示效果
+- **深色/淺色模式** - 支援主題切換，保護您的眼睛
+- **全新品牌設計** - 更現代化的 UI 與交易所圖標
 
-- 📊 **多時間週期 K 線圖** - 支援 1m、5m、15m、30m、1h、4h、1d、1w 多種時間週期
-- 📈 **倉位歷史分析** - 完整追蹤每一個倉位從開倉到平倉的過程
-- 💰 **損益統計** - 月度 PnL、勝率、盈虧比等關鍵指標
-- 📉 **權益曲線** - 視覺化資金變化趨勢
-- 🎯 **交易標記** - 在 K 線圖上標記所有買賣點位，支援跳轉到歷史倉位
-- 🔍 **倉位詳情** - 點擊倉位即可查看該倉位所有交易細節
-- 🌐 **線上數據導入** - 直接在平台上輸入 API 密鑰導入數據
-- 🤖 **AI 智能分析** - 使用 GPT-4/Claude/Gemini 分析交易表現並給出改進建議
+## 核心功能
 
-## 📸 截圖預覽
+- **多時間週期 K 線圖** - 支援 1m、5m、15m、30m、1h、4h、1d、1w 多種時間週期
+- **倉位歷史分析** - 完整追蹤每一個倉位從開倉到平倉的過程
+- **損益統計** - 月度 PnL、勝率、盈虧比等關鍵指標
+- **權益曲線** - 視覺化資金變化趨勢
+- **交易標記** - 在 K 線圖上標記所有買賣點位，支援跳轉到歷史倉位
+- **倉位詳情** - 點擊倉位即可查看該倉位所有交易細節
+- **線上數據導入** - 直接在平台上輸入 API 密鑰導入數據
+- **AI 智能分析** - 使用 GPT/Claude/Gemini 分析交易表現並給出改進建議
+
+## 截圖預覽
 
 ![Platform Preview](TradeVoyage.gif)
 
 ---
 
-## 🚀 快速開始
+## 快速開始
 
 ### 環境需求
 
@@ -68,11 +70,11 @@ npm run dev
 
 ---
 
-## 📥 數據導入方式
+## 數據導入方式
 
 ### 方式一：透過平台介面導入（推薦）
 
-1. 點擊右上角的 ⚙️ **設定** 圖示進入數據導入頁面
+1. 點擊右上角的設定圖示進入數據導入頁面
 2. 選擇交易所（BitMEX、Binance Futures、OKX 或 Bybit）
 3. 輸入 Read-Only API Key 和 API Secret（OKX 需額外輸入 Passphrase）
 4. OKX 用戶可選擇 Instrument Type（SWAP、FUTURES、MARGIN 或 ALL）
@@ -80,22 +82,20 @@ npm run dev
 6. 點擊「測試連接」確認 API 正確
 7. 點擊「開始導入」自動抓取並儲存數據
 
-> ⚠️ **安全提示：** 
+> **安全提示：**
 > - 請使用 **Read-Only** 權限的 API Key
 > - API 密鑰只用於抓取數據，不會被儲存或傳送至第三方
 > - 數據儲存在本地專案目錄中
 
 ### 方式二：使用 Demo 數據
 
-📦 **paulwei 交易員示範數據** (CSV 檔案，放置於根目錄)
+**paulwei 交易員示範數據** (CSV 檔案，放置於根目錄)
 
-🔗 [下載連結 (Google Drive)](https://drive.google.com/file/d/11i_nJ90QpgP6Lnwalucapcsd2NbuC9co/view?usp=sharing)
+[下載連結 (Google Drive)](https://drive.google.com/file/d/11i_nJ90QpgP6Lnwalucapcsd2NbuC9co/view?usp=sharing)
 
 下載後解壓縮，將 CSV 檔案放置於專案根目錄即可使用。
 
 ### 方式三：手動下載數據檔案
-
-如果您有現成的數據檔案，可以手動放置：
 
 #### 交易數據（根目錄）
 
@@ -137,16 +137,16 @@ TradeVoyage/
 
 ---
 
-## 🔑 API Key 設定指南
+## API Key 設定指南
 
 ### BitMEX
 
 1. 前往 [BitMEX API Keys](https://www.bitmex.com/app/apiKeys)
 2. 點擊「Create API Key」
 3. 權限設定：
-   - ✅ **Read** - 必須開啟
-   - ❌ Order - 不需要
-   - ❌ Withdraw - 不需要
+   - [x] **Read** - 必須開啟
+   - [ ] Order - 不需要
+   - [ ] Withdraw - 不需要
 4. 複製 API Key 和 Secret
 
 ### Binance Futures
@@ -156,10 +156,10 @@ TradeVoyage/
 3. 選擇「System generated」
 4. 完成安全驗證
 5. 權限設定：
-   - ✅ **Enable Reading** - 必須開啟
-   - ✅ **Enable Futures** - 必須開啟
-   - ❌ Enable Spot & Margin Trading - 不需要
-   - ❌ Enable Withdrawals - 不需要
+   - [x] **Enable Reading** - 必須開啟
+   - [x] **Enable Futures** - 必須開啟
+   - [ ] Enable Spot & Margin Trading - 不需要
+   - [ ] Enable Withdrawals - 不需要
 6. 複製 API Key 和 Secret Key
 
 ### OKX
@@ -168,9 +168,9 @@ TradeVoyage/
 2. 點擊「Create V5 API Key」
 3. 設定 Passphrase（必填，導入時需要）
 4. 權限設定：
-   - ✅ **Read** - 必須開啟
-   - ❌ Trade - 不需要
-   - ❌ Withdraw - 不需要
+   - [x] **Read** - 必須開啟
+   - [ ] Trade - 不需要
+   - [ ] Withdraw - 不需要
 5. 選擇 Instrument Type：
    - **SWAP** - 永續合約（預設）
    - **FUTURES** - 交割合約
@@ -184,16 +184,16 @@ TradeVoyage/
 2. 點擊「Create New Key」
 3. 選擇「API Transaction」
 4. 權限設定：
-   - ✅ **Read-Only** - 必須開啟
-   - ❌ Contract - Trade - 不需要
-   - ❌ Withdraw - 不需要
+   - [x] **Read-Only** - 必須開啟
+   - [ ] Contract - Trade - 不需要
+   - [ ] Withdraw - 不需要
 5. 複製 API Key 和 Secret Key
 
-> ⚠️ **注意：** Bybit API 僅支援查詢最近 2 年的交易數據，每次請求最多抓取 7 天資料（系統會自動分批處理）。
+> **注意：** Bybit API 僅支援查詢最近 2 年的交易數據，每次請求最多抓取 7 天資料（系統會自動分批處理）。
 
 ---
 
-## ️ 技術架構
+## 技術架構
 
 | 技術 | 用途 |
 |------|------|
@@ -206,7 +206,7 @@ TradeVoyage/
 
 ---
 
-## 📁 專案結構
+## 專案結構
 
 ```
 TradeVoyage/
@@ -241,7 +241,7 @@ TradeVoyage/
 
 ---
 
-##  開發指令
+## 開發指令
 
 ```bash
 # 開發模式
@@ -259,17 +259,17 @@ npm run lint
 
 ---
 
-## 🗺️ 未來規劃
+## 未來規劃
 
-- [x] ~~整合 Bybit 交易所~~ ✅ 已完成！
-- [x] ~~整合 OKX 交易所~~ ✅ 已完成！
-- [x] ~~AI 交易分析與建議~~ ✅ 已完成！
+- [x] ~~整合 Bybit 交易所~~ - 已完成！
+- [x] ~~整合 OKX 交易所~~ - 已完成！
+- [x] ~~AI 交易分析與建議~~ - 已完成！
 - [ ] 多帳戶管理
 - [ ] 更多統計指標
 
 ---
 
-## 🤖 AI 交易分析
+## AI 交易分析
 
 TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提供改進建議：
 
@@ -278,7 +278,7 @@ TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提�
 #### OpenAI（9 款）
 | 模型 | API 名稱 | 特點 |
 |------|----------|------|
-| 🔥 GPT-5.2 | `gpt-5.2` | 最新最強 - 代碼與代理任務最佳 |
+| **GPT-5.2** | `gpt-5.2` | 最新最強 - 代碼與代理任務最佳 |
 | GPT-5.1 | `gpt-5.1` | 速度與智能平衡 - 通用首選 |
 | GPT-5 | `gpt-5` | 第五代旗艦 - 強大多模態 |
 | GPT-4o | `gpt-4o` | 經典款 - 穩定可靠 |
@@ -300,7 +300,7 @@ TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提�
 #### Google Gemini（7 款）
 | 模型 | API 名稱 | 特點 |
 |------|----------|------|
-| 🔥 Gemini 3 Pro | `gemini-3-pro` | 最新 - 高精度多模態推理 |
+| **Gemini 3 Pro** | `gemini-3-pro` | 最新 - 高精度多模態推理 |
 | Gemini 2.5 Pro | `gemini-2.5-pro` | 專業版 - 深度思考 |
 | Gemini 2.5 Flash | `gemini-2.5-flash` | 價效比最佳 - 自適應思考 |
 | Gemini 2.0 Flash | `gemini-2.0-flash` | 2倍速度提升 |
@@ -310,7 +310,7 @@ TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提�
 
 ### 設定方式
 
-1. 前往 **Settings → AI Settings**
+1. 前往 **Settings > AI Settings**
 2. 輸入您的 AI Provider API Key
 3. （可選）自訂 System Prompt
 4. 點擊「Save Settings」
@@ -318,7 +318,7 @@ TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提�
 ### 使用方式
 
 1. 在 Dashboard 點擊 **AI Analysis** 分頁
-2. 選擇要使用的 AI Provider
+2. 選擇要使用的 AI Provider 和 Model
 3. 點擊「分析我的交易」
 4. AI 將分析您的：
    - 整體統計數據（勝率、盈虧比等）
@@ -328,21 +328,21 @@ TradeVoyage 整合了多個 AI 模型，可智能分析您的交易表現並提�
 
 ### 特點
 
-- 📊 **全面分析** - 分析勝率、盈虧比、持倉時間等指標
-- 💾 **本地儲存** - 分析結果自動儲存，下次訪問無需重新分析
-- 🔒 **安全** - API Key 僅儲存在您的瀏覽器中
-- 🌐 **多交易所** - 每個交易所獨立儲存分析結果
+- **全面分析** - 分析勝率、盈虧比、持倉時間等指標
+- **本地儲存** - 分析結果自動儲存，下次訪問無需重新分析
+- **安全** - API Key 僅儲存在您的瀏覽器中
+- **多交易所** - 每個交易所獨立儲存分析結果
 
 ---
 
-## 📝 License
+## License
 
 MIT License
 
 ---
 
-## 🙏 致謝
+## 致謝
 
 感謝 paulwei 交易員提供 Read-Only API，讓這個學習平台得以持續改進。
 
-**⚠️ 免責聲明：本平台僅供學習和研究使用，不構成任何投資建議。加密貨幣交易具有高風險，請謹慎投資。**
+**免責聲明：本平台僅供學習和研究使用，不構成任何投資建議。加密貨幣交易具有高風險，請謹慎投資。**
