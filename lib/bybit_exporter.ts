@@ -19,6 +19,7 @@ import {
     ImportResult,
     formatSymbol
 } from './exchange_types';
+import { getProxyAgent } from './http_proxy';
 
 const BYBIT_API_BASE = 'api.bybit.com';
 const REQUEST_DELAY = 200; // 200ms between requests
@@ -92,7 +93,8 @@ async function bybitRequest(
                 'X-BAPI-TIMESTAMP': timestamp,
                 'X-BAPI-SIGN': signature,
                 'X-BAPI-RECV-WINDOW': recvWindow,
-            }
+            },
+            agent: getProxyAgent(),
         };
 
         const req = https.request(options, (res) => {

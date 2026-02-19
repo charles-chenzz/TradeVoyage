@@ -144,8 +144,9 @@ export default function SettingsPage() {
                 addLog(`✗ ${data.message}`, 'error');
             }
         } catch (error: any) {
-            setImportState({ status: 'error', message: error.message });
-            addLog(`✗ Error: ${error.message}`, 'error');
+            const message = error?.message || 'Connection failed';
+            setImportState({ status: 'error', message });
+            addLog(`✗ Error: ${message}`, 'error');
         }
     };
 

@@ -20,6 +20,7 @@ import {
     UnifiedAccountSummary,
     ImportResult 
 } from './exchange_types';
+import { getProxyAgent } from './http_proxy';
 
 const BINANCE_FUTURES_BASE = 'fapi.binance.com';
 const SAT_TO_BTC = 100000000;
@@ -28,6 +29,7 @@ const SAT_TO_BTC = 100000000;
 const REQUEST_DELAY = 500; // 500ms between requests
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 10000; // 10s hard timeout to avoid hanging requests
 
 // Check if CSV file exists and has data
 function csvExists(filename: string): boolean {
@@ -59,6 +61,7 @@ async function syncServerTime(): Promise<void> {
             port: 443,
             path: '/fapi/v1/time',
             method: 'GET',
+            agent: getProxyAgent(),
         };
         
         const req = https.request(options, (res) => {
@@ -77,6 +80,10 @@ async function syncServerTime(): Promise<void> {
                     resolve();
                 }
             });
+        });
+        
+        req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+            req.destroy(new Error('Request timeout'));
         });
         
         req.on('error', () => {
@@ -119,7 +126,8 @@ async function binanceRequest(
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-MBX-APIKEY': apiKey,
-            }
+            },
+            agent: getProxyAgent(),
         };
         
         const req = https.request(options, (res) => {
@@ -139,7 +147,17 @@ async function binanceRequest(
             });
         });
         
-        req.on('error', reject);
+        req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+            req.destroy(new Error('Request timeout'));
+        });
+
+        req.on('error', (err) => {
+            if (err && err.message && err.message.toLowerCase().includes('timeout')) {
+                reject(new Error('Request timeout. Unable to reach Binance API (network or region restriction).'));
+                return;
+            }
+            reject(err);
+        });
         if (body) req.write(body);
         req.end();
     });
