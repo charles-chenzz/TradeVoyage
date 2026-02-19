@@ -18,6 +18,7 @@ import {
     UnifiedAccountSummary,
     ImportResult 
 } from './exchange_types';
+import { getProxyAgent } from './http_proxy';
 
 // Check if CSV file exists and has data
 function csvExists(filename: string): boolean {
@@ -61,7 +62,8 @@ async function bitmexRequest(
                 'api-expires': expires,
                 'api-key': apiKey,
                 'api-signature': signature
-            }
+            },
+            agent: getProxyAgent(),
         };
         
         const req = https.request(options, (res) => {
@@ -545,4 +547,3 @@ export async function exportBitmexDataWithProgress(
         };
     }
 }
-

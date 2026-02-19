@@ -19,6 +19,7 @@ import {
     UnifiedAccountSummary,
     ImportResult
 } from './exchange_types';
+import { getProxyAgent } from './http_proxy';
 
 const OKX_API_BASE = 'www.okx.com';
 const SAT_TO_BTC = 100000000;
@@ -110,7 +111,8 @@ async function okxRequest(
                 'OK-ACCESS-SIGN': signature,
                 'OK-ACCESS-TIMESTAMP': timestamp,
                 'OK-ACCESS-PASSPHRASE': passphrase,
-            }
+            },
+            agent: getProxyAgent(),
         };
 
         const req = https.request(options, (res) => {
