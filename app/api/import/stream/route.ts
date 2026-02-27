@@ -4,6 +4,7 @@ import { exportBinanceDataWithProgress } from '@/lib/binance_exporter';
 import { exportBitmexDataWithProgress } from '@/lib/bitmex_exporter';
 import { exportOkxDataWithProgress } from '@/lib/okx_exporter';
 import { exportBybitDataWithProgress } from '@/lib/bybit_exporter';
+import { resetExchangeCache } from '@/lib/data_loader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
                 await writer.close();
                 return;
             }
+
+            // Clear server-side cache so new CSVs are picked up immediately
+            resetExchangeCache(exchange);
 
             // Send final result
             await sendLog(JSON.stringify({ done: true, result }), 'success');

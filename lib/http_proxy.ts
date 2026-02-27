@@ -1,6 +1,6 @@
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
-let cachedAgent: HttpsProxyAgent | null | undefined;
+let cachedAgent: HttpsProxyAgent<string> | null | undefined;
 
 function getProxyUrl(): string | undefined {
     return (
@@ -13,7 +13,7 @@ function getProxyUrl(): string | undefined {
     );
 }
 
-export function getProxyAgent(): HttpsProxyAgent | undefined {
+export function getProxyAgent(): HttpsProxyAgent<string> | undefined {
     if (cachedAgent !== undefined) {
         return cachedAgent || undefined;
     }

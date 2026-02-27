@@ -15,12 +15,12 @@ import {
     AlertTriangle,
     ExternalLink,
     RefreshCw,
+    RotateCcw,
     Terminal,
     FileCheck,
     Bot,
     Sparkles,
     Save,
-    RotateCcw
 } from 'lucide-react';
 import { ExchangeType, EXCHANGE_DISPLAY_NAMES } from '@/lib/exchange_types';
 import {
@@ -36,6 +36,14 @@ import {
     getDefaultAISettings,
     getApiKeyForProvider
 } from '@/lib/ai_types';
+import {
+    ImportConfig,
+    loadImportConfig,
+    saveImportConfig,
+    clearImportConfig,
+    loadRememberChoice,
+    saveRememberChoice,
+} from '@/lib/import_settings';
 
 interface ImportState {
     status: 'idle' | 'testing' | 'importing' | 'success' | 'error';
@@ -69,6 +77,9 @@ export default function SettingsPage() {
     const [progress, setProgress] = useState(0);
     const [currentOperation, setCurrentOperation] = useState<string>(''); // For in-place updates
     const logsEndRef = useRef<HTMLDivElement>(null);
+    const [hasSavedConfig, setHasSavedConfig] = useState(false);
+    const [savedAt, setSavedAt] = useState<string | null>(null);
+    const [rememberCredentials, setRememberCredentials] = useState(false);
 
     // Tab state
     const [activeTab, setActiveTab] = useState<'import' | 'ai'>('import');
@@ -86,6 +97,28 @@ export default function SettingsPage() {
     useEffect(() => {
         const loaded = loadAISettings();
         setAiSettings(loaded);
+    }, []);
+
+    // Load saved import settings from localStorage
+    useEffect(() => {
+        const remember = loadRememberChoice();
+        setRememberCredentials(remember);
+        if (!remember) {
+            clearImportConfig();
+            return;
+        }
+        const saved = loadImportConfig();
+        if (!saved) return;
+        setExchange(saved.exchange);
+        setApiKey(saved.apiKey);
+        setApiSecret(saved.apiSecret);
+        setPassphrase(saved.passphrase || '');
+        setOkxInstType(saved.okxInstType || 'SWAP');
+        setStartDate(saved.startDate);
+        setEndDate(saved.endDate);
+        setForceRefetch(saved.forceRefetch || false);
+        setHasSavedConfig(true);
+        setSavedAt(saved.savedAt || null);
     }, []);
 
     // Add log - for permanent messages
@@ -106,6 +139,39 @@ export default function SettingsPage() {
     const clearLogs = () => {
         setLogs([]);
         setCurrentOperation('');
+    };
+
+    const getCurrentConfig = (): ImportConfig => ({
+        exchange,
+        apiKey,
+        apiSecret,
+        passphrase,
+        okxInstType,
+        startDate,
+        endDate,
+        forceRefetch,
+    });
+
+    const persistImportConfig = (config: ImportConfig) => {
+        if (!rememberCredentials) return;
+        const saved = saveImportConfig(config);
+        if (!saved) return;
+        setHasSavedConfig(true);
+        setSavedAt(saved.savedAt);
+    };
+
+    const clearSavedConfig = (options?: { keepInputs?: boolean }) => {
+        clearImportConfig();
+        setHasSavedConfig(false);
+        setSavedAt(null);
+        if (!options?.keepInputs) {
+            setApiKey('');
+            setApiSecret('');
+            setPassphrase('');
+        }
+        setConnectionTested(false);
+        setImportState({ status: 'idle', message: '' });
+        clearLogs();
     };
 
     const testConnection = async () => {
@@ -138,6 +204,7 @@ export default function SettingsPage() {
             if (data.success) {
                 setImportState({ status: 'success', message: data.message });
                 setConnectionTested(true);
+                persistImportConfig(getCurrentConfig());
                 addLog(`✓ ${data.message}`, 'success');
             } else {
                 setImportState({ status: 'error', message: data.message });
@@ -150,9 +217,22 @@ export default function SettingsPage() {
         }
     };
 
-    const startImport = async () => {
-        if (!connectionTested) {
+    const startImport = async (override?: Partial<ImportConfig> & { skipConnectionCheck?: boolean }) => {
+        const { skipConnectionCheck, ...overrides } = override || {};
+        const config = { ...getCurrentConfig(), ...overrides };
+
+        if (!skipConnectionCheck && !connectionTested) {
             setImportState({ status: 'error', message: 'Please test connection first' });
+            return;
+        }
+
+        if (!config.apiKey || !config.apiSecret) {
+            setImportState({ status: 'error', message: 'Please enter API Key and Secret' });
+            return;
+        }
+
+        if (config.exchange === 'okx' && !config.passphrase) {
+            setImportState({ status: 'error', message: 'OKX requires a passphrase' });
             return;
         }
 
@@ -166,14 +246,14 @@ export default function SettingsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    exchange,
-                    apiKey,
-                    apiSecret,
-                    passphrase: exchange === 'okx' ? passphrase : undefined,
-                    okxInstType: exchange === 'okx' ? okxInstType : undefined,
-                    startDate,
-                    endDate,
-                    forceRefetch,
+                    exchange: config.exchange,
+                    apiKey: config.apiKey,
+                    apiSecret: config.apiSecret,
+                    passphrase: config.exchange === 'okx' ? config.passphrase : undefined,
+                    okxInstType: config.exchange === 'okx' ? config.okxInstType : undefined,
+                    startDate: config.startDate,
+                    endDate: config.endDate,
+                    forceRefetch: config.forceRefetch,
                 }),
             });
 
@@ -220,6 +300,7 @@ export default function SettingsPage() {
                                                 message: result.message,
                                                 stats: result.stats,
                                             });
+                                            persistImportConfig(config);
                                         } else {
                                             setImportState({
                                                 status: 'error',
@@ -354,7 +435,7 @@ export default function SettingsPage() {
                                 <div className="text-sm">
                                     <p className="font-medium text-amber-300">Security Notice</p>
                                     <p className="text-amber-200/80 mt-1">
-                                        Use <strong>Read-Only</strong> API keys. Keys are never stored.
+                                        Use <strong>Read-Only</strong> API keys. You can choose whether to store them locally for quick re-import.
                                     </p>
                                 </div>
                             </div>
@@ -510,6 +591,33 @@ export default function SettingsPage() {
                                             </p>
                                         </div>
                                     )}
+
+                                    {/* Remember Credentials */}
+                                    <label className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700 cursor-pointer hover:bg-zinc-800 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberCredentials}
+                                            onChange={(e) => {
+                                                const next = e.target.checked;
+                                                setRememberCredentials(next);
+                                                saveRememberChoice(next);
+                                                if (!next) {
+                                                    clearSavedConfig({ keepInputs: true });
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-700 text-blue-500 
+                                                 focus:ring-blue-500 focus:ring-offset-0"
+                                        />
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <Save className="w-4 h-4 text-zinc-400" />
+                                                <span className="font-medium text-white">Remember API credentials on this device</span>
+                                            </div>
+                                            <p className="text-xs text-zinc-500 mt-0.5">
+                                                Enable to use “Re-import Last” without re-entering keys
+                                            </p>
+                                        </div>
+                                    </label>
                                 </div>
 
                                 <button
@@ -593,7 +701,7 @@ export default function SettingsPage() {
 
                             {/* Import Button */}
                             <button
-                                onClick={startImport}
+                                onClick={() => startImport()}
                                 disabled={!connectionTested || importState.status === 'importing'}
                                 className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 
                                      hover:from-blue-500 hover:to-blue-400
@@ -613,6 +721,12 @@ export default function SettingsPage() {
                                     </>
                                 )}
                             </button>
+
+                            {hasSavedConfig && savedAt && (
+                                <p className="text-xs text-zinc-500 text-center">
+                                    Saved locally at {new Date(savedAt).toLocaleString()}
+                                </p>
+                            )}
 
                             {/* Progress Bar */}
                             {importState.status === 'importing' && (

@@ -82,7 +82,7 @@ function loadLocalOHLCV(symbol: string, sourceTimeframe: string): OHLCVCandle[] 
         
         const candles: OHLCVCandle[] = [];
         
-        for (const r of records) {
+        for (const r of records as Record<string, string>[]) {
             const time = Math.floor(new Date(r.timestamp).getTime() / 1000);
             const open = parseFloat(r.open);
             const high = parseFloat(r.high);

@@ -1,10 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Position } from '@/lib/position_calculator';
+import { PositionSession } from '@/lib/types';
 
 interface PositionHistoryProps {
-    positions: Position[];
+    positions: PositionSession[];
 }
 
 export function PositionHistory({ positions }: PositionHistoryProps) {
@@ -38,7 +38,7 @@ export function PositionHistory({ positions }: PositionHistoryProps) {
                                 {pos.closeTime ? new Date(pos.closeTime).toLocaleString() : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-gray-100">
-                                {pos.maxQty.toLocaleString()}
+                                {pos.maxSize.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-gray-100">
                                 {pos.avgEntryPrice.toFixed(2)}
@@ -46,8 +46,8 @@ export function PositionHistory({ positions }: PositionHistoryProps) {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-gray-100">
                                 {pos.avgExitPrice > 0 ? pos.avgExitPrice.toFixed(2) : '-'}
                             </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${pos.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {pos.pnl.toFixed(8)} {pos.symbol.includes('BTC') ? 'XBT' : 'USD'}
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${pos.realizedPnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {pos.realizedPnl.toFixed(8)} {pos.symbol.includes('BTC') ? 'XBT' : 'USD'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${pos.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
