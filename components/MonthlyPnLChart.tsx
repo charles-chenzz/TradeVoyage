@@ -94,15 +94,15 @@ export function MonthlyPnLChart({ data, exchange = 'bitmex' }: MonthlyPnLChartPr
         <div className="w-full">
             <div className="flex justify-between items-start mb-4">
                 <div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-gray-500">
                         {data.length} months tracked
                     </p>
                 </div>
                 <div className="text-right">
-                    <p className={`text-xl font-bold ${totalPnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    <p className={`text-xl font-bold ${totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(4)} {currencyUnit}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-gray-500">
                         {profitableMonths}/{data.length} profitable months ({((profitableMonths / data.length) * 100).toFixed(0)}%)
                     </p>
                 </div>
@@ -111,9 +111,9 @@ export function MonthlyPnLChart({ data, exchange = 'bitmex' }: MonthlyPnLChartPr
             <div ref={chartContainerRef} className="w-full h-[300px]" />
 
             {/* Monthly summary table */}
-            <div className="mt-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="mt-4 max-h-[200px] overflow-y-auto pr-2">
                 <table className="w-full text-sm">
-                    <thead className="text-xs text-muted-foreground sticky top-0 bg-card/95 backdrop-blur-sm z-10">
+                    <thead className="text-xs text-gray-500 sticky top-0 bg-white/95 backdrop-blur-sm z-10">
                         <tr>
                             <th className="text-left py-2 font-medium">Month</th>
                             <th className="text-right py-2 font-medium">Realized PnL</th>
@@ -121,17 +121,17 @@ export function MonthlyPnLChart({ data, exchange = 'bitmex' }: MonthlyPnLChartPr
                             <th className="text-right py-2 font-medium">Trades</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/50">
+                    <tbody className="divide-y divide-gray-100">
                         {[...data].reverse().slice(0, 12).map((d) => (
-                            <tr key={d.month} className="hover:bg-secondary/30 transition-colors">
-                                <td className="py-2 font-medium">{d.month}</td>
-                                <td className={`py-2 text-right font-bold ${d.pnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            <tr key={d.month} className="hover:bg-gray-50 transition-colors">
+                                <td className="py-2 font-medium text-gray-900">{d.month}</td>
+                                <td className={`py-2 text-right font-bold ${d.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                     {d.pnl >= 0 ? '+' : ''}{d.pnl.toFixed(4)}
                                 </td>
-                                <td className={`py-2 text-right ${d.funding >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                <td className={`py-2 text-right ${d.funding >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                                     {d.funding >= 0 ? '+' : ''}{d.funding.toFixed(4)}
                                 </td>
-                                <td className="py-2 text-right text-muted-foreground">{d.trades.toLocaleString()}</td>
+                                <td className="py-2 text-right text-gray-500">{d.trades.toLocaleString()}</td>
                             </tr>
                         ))}
                     </tbody>
