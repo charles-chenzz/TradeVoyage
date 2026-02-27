@@ -10,6 +10,8 @@ import {
     AccountSummary,
     TradingStats,
     PositionSession,
+    TokenMetrics,
+    AdvancedStats,
     formatSymbol
 } from './types';
 import { ExchangeType, toInternalSymbol } from './exchange_types';
@@ -69,6 +71,24 @@ const cacheStore: Record<ExchangeType, {
         sessions: null,
     },
 };
+
+export function resetExchangeCache(exchange?: ExchangeType): void {
+    const reset = (ex: ExchangeType) => {
+        cacheStore[ex].executions = null;
+        cacheStore[ex].trades = null;
+        cacheStore[ex].orders = null;
+        cacheStore[ex].wallet = null;
+        cacheStore[ex].accountSummary = null;
+        cacheStore[ex].sessions = null;
+    };
+
+    if (exchange) {
+        reset(exchange);
+        return;
+    }
+
+    (Object.keys(cacheStore) as ExchangeType[]).forEach(reset);
+}
 
 // ============ Clear Cache ============
 
@@ -491,12 +511,364 @@ export function getPositionSessions(exchange: ExchangeType = 'bitmex'): Position
     return cacheStore[exchange].sessions!;
 }
 
+// ============ Token Discovery ============
+
+export interface TradedTokenInfo {
+    symbol: string;
+    displaySymbol: string;
+    totalSessions: number;
+    totalPnl: number;
+    firstTrade: string;
+    lastTrade: string;
+}
+
+export function getAllTradedSymbols(exchange: ExchangeType = 'bitmex'): string[] {
+    const executions = loadExecutionsFromCSV(exchange);
+    const symbolSet = new Set<string>();
+    
+    executions.forEach(exec => {
+        if (exec.execType === 'Trade' && exec.lastQty > 0) {
+            symbolSet.add(exec.symbol);
+        }
+    });
+    
+    return Array.from(symbolSet).sort();
+}
+
+export function getTradedTokensInfo(exchange: ExchangeType = 'bitmex'): TradedTokenInfo[] {
+    const sessions = getPositionSessions(exchange);
+    const tokenMap = new Map<string, {
+        sessions: PositionSession[];
+        totalPnl: number;
+        firstTrade: string;
+        lastTrade: string;
+    }>();
+    
+    sessions.forEach(session => {
+        const symbol = session.symbol;
+        if (!tokenMap.has(symbol)) {
+            tokenMap.set(symbol, {
+                sessions: [],
+                totalPnl: 0,
+                firstTrade: session.openTime,
+                lastTrade: session.closeTime || session.openTime,
+            });
+        }
+        
+        const info = tokenMap.get(symbol)!;
+        info.sessions.push(session);
+        info.totalPnl += session.netPnl;
+        
+        if (session.openTime < info.firstTrade) {
+            info.firstTrade = session.openTime;
+        }
+        if ((session.closeTime || session.openTime) > info.lastTrade) {
+            info.lastTrade = session.closeTime || session.openTime;
+        }
+    });
+    
+    return Array.from(tokenMap.entries())
+        .map(([symbol, info]) => ({
+            symbol,
+            displaySymbol: formatSymbol(symbol),
+            totalSessions: info.sessions.length,
+            totalPnl: info.totalPnl,
+            firstTrade: info.firstTrade.split('T')[0],
+            lastTrade: info.lastTrade.split('T')[0],
+        }))
+        .sort((a, b) => b.totalPnl - a.totalPnl);
+}
+
+// ============ Token Metrics Calculation ============
+
+function calculateTokenMetrics(
+    symbol: string,
+    sessions: PositionSession[],
+    exchange: ExchangeType
+): TokenMetrics {
+    const symbolSessions = sessions.filter(s => s.symbol === symbol);
+    const closedSessions = symbolSessions.filter(s => s.status === 'closed' && s.closeTime);
+    
+    const winningSessions = closedSessions.filter(s => s.netPnl > 0);
+    const losingSessions = closedSessions.filter(s => s.netPnl < 0);
+    
+    const grossProfit = winningSessions.reduce((sum, s) => sum + s.netPnl, 0);
+    const grossLoss = losingSessions.reduce((sum, s) => sum + s.netPnl, 0);
+    const netPnl = grossProfit + grossLoss;
+    
+    const totalFees = symbolSessions.reduce((sum, s) => sum + s.totalFees, 0);
+    
+    const winRate = closedSessions.length > 0 
+        ? (winningSessions.length / closedSessions.length) * 100 
+        : 0;
+    
+    const longSessions = closedSessions.filter(s => s.side === 'long');
+    const shortSessions = closedSessions.filter(s => s.side === 'short');
+    const longPnl = longSessions.reduce((sum, s) => sum + s.netPnl, 0);
+    const shortPnl = shortSessions.reduce((sum, s) => sum + s.netPnl, 0);
+    const longWinRate = longSessions.length > 0 
+        ? (longSessions.filter(s => s.netPnl > 0).length / longSessions.length) * 100 
+        : 0;
+    const shortWinRate = shortSessions.length > 0 
+        ? (shortSessions.filter(s => s.netPnl > 0).length / shortSessions.length) * 100 
+        : 0;
+    
+    const avgHoldingTimeMs = closedSessions.length > 0
+        ? closedSessions.reduce((sum, s) => sum + s.durationMs, 0) / closedSessions.length
+        : 0;
+    const avgHoldingTimeHours = avgHoldingTimeMs / (1000 * 60 * 60);
+    
+    const sortedByPnl = [...closedSessions].sort((a, b) => b.netPnl - a.netPnl);
+    const bestSession = sortedByPnl[0];
+    const worstSession = sortedByPnl[sortedByPnl.length - 1];
+    
+    const sortedByTime = [...closedSessions].sort((a, b) => 
+        new Date(a.closeTime!).getTime() - new Date(b.closeTime!).getTime()
+    );
+    const firstTradeDate = sortedByTime[0]?.closeTime?.split('T')[0] || '';
+    const lastTradeDate = sortedByTime[sortedByTime.length - 1]?.closeTime?.split('T')[0] || '';
+    
+    const tradeDates = new Set(closedSessions.map(s => s.closeTime?.split('T')[0]));
+    const tradingDays = tradeDates.size;
+    const avgDailyTrades = tradingDays > 0 ? closedSessions.length / tradingDays : 0;
+    
+    const hourCounts = new Map<number, number>();
+    const dayCounts = new Map<string, number>();
+    closedSessions.forEach(s => {
+        if (s.closeTime) {
+            const date = new Date(s.closeTime);
+            const hour = date.getUTCHours();
+            const day = date.toLocaleDateString('en-US', { weekday: 'long' });
+            hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+            dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
+        }
+    });
+    const mostActiveHour = Array.from(hourCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+    const mostActiveDay = Array.from(dayCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    
+    const firstHalf = sortedByTime.slice(0, Math.floor(sortedByTime.length / 2));
+    const secondHalf = sortedByTime.slice(Math.floor(sortedByTime.length / 2));
+    const firstHalfPnl = firstHalf.reduce((sum, s) => sum + s.netPnl, 0);
+    const secondHalfPnl = secondHalf.reduce((sum, s) => sum + s.netPnl, 0);
+    let pnlTrend: 'up' | 'down' | 'neutral' = 'neutral';
+    if (secondHalfPnl > firstHalfPnl * 1.1) pnlTrend = 'up';
+    else if (secondHalfPnl < firstHalfPnl * 0.9) pnlTrend = 'down';
+    
+    const volumeTrend: 'up' | 'down' | 'neutral' = 'neutral';
+    
+    let cumulativePnl = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    sortedByTime.forEach(s => {
+        cumulativePnl += s.netPnl;
+        if (cumulativePnl > peak) peak = cumulativePnl;
+        const drawdown = peak - cumulativePnl;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    });
+    const maxDrawdownPercent = peak > 0 ? (maxDrawdown / peak) * 100 : 0;
+    
+    const dailyPnl = new Map<string, number>();
+    closedSessions.forEach(s => {
+        if (s.closeTime) {
+            const date = s.closeTime.split('T')[0];
+            dailyPnl.set(date, (dailyPnl.get(date) || 0) + s.netPnl);
+        }
+    });
+    const dailyReturns = Array.from(dailyPnl.values());
+    const avgReturn = dailyReturns.length > 0 
+        ? dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length 
+        : 0;
+    const variance = dailyReturns.length > 1 
+        ? dailyReturns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (dailyReturns.length - 1)
+        : 0;
+    const volatility = Math.sqrt(variance) * Math.sqrt(365);
+    
+    const sharpeRatio = volatility > 0 ? (avgReturn * 365) / volatility : 0;
+    
+    const negativeReturns = dailyReturns.filter(r => r < 0);
+    const downVariance = negativeReturns.length > 1 
+        ? negativeReturns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (negativeReturns.length - 1)
+        : 0;
+    const downVolatility = Math.sqrt(downVariance) * Math.sqrt(365);
+    const sortinoRatio = downVolatility > 0 ? (avgReturn * 365) / downVolatility : 0;
+    
+    return {
+        symbol,
+        displaySymbol: formatSymbol(symbol),
+        totalSessions: closedSessions.length,
+        winningSessions: winningSessions.length,
+        losingSessions: losingSessions.length,
+        winRate: Math.round(winRate * 100) / 100,
+        grossProfit,
+        grossLoss,
+        netPnl,
+        totalFunding: 0,
+        totalFees,
+        sharpeRatio: Math.round(sharpeRatio * 100) / 100,
+        sortinoRatio: Math.round(sortinoRatio * 100) / 100,
+        maxDrawdown,
+        maxDrawdownPercent: Math.round(maxDrawdownPercent * 100) / 100,
+        volatility: Math.round(volatility * 100) / 100,
+        avgHoldingTimeHours: Math.round(avgHoldingTimeHours * 100) / 100,
+        bestSession: bestSession ? {
+            pnl: bestSession.netPnl,
+            duration: bestSession.durationMs,
+            date: bestSession.closeTime?.split('T')[0] || '',
+        } : { pnl: 0, duration: 0, date: '' },
+        worstSession: worstSession ? {
+            pnl: worstSession.netPnl,
+            duration: worstSession.durationMs,
+            date: worstSession.closeTime?.split('T')[0] || '',
+        } : { pnl: 0, duration: 0, date: '' },
+        longSessions: longSessions.length,
+        shortSessions: shortSessions.length,
+        longPnl,
+        shortPnl,
+        longWinRate: Math.round(longWinRate * 100) / 100,
+        shortWinRate: Math.round(shortWinRate * 100) / 100,
+        avgDailyTrades: Math.round(avgDailyTrades * 100) / 100,
+        mostActiveHour,
+        mostActiveDay,
+        firstTradeDate,
+        lastTradeDate,
+        pnlTrend,
+        volumeTrend,
+    };
+}
+
+function calculateAdvancedStats(
+    tokenMetrics: TokenMetrics[],
+    sessions: PositionSession[]
+): AdvancedStats {
+    const closedSessions = sessions.filter(s => s.status === 'closed' && s.closeTime);
+    
+    const totalTokens = tokenMetrics.length;
+    const profitableTokens = tokenMetrics.filter(t => t.netPnl > 0).length;
+    const unprofitableTokens = tokenMetrics.filter(t => t.netPnl < 0).length;
+    
+    const sortedByPnl = [...tokenMetrics].sort((a, b) => b.netPnl - a.netPnl);
+    const topTokenPnl = sortedByPnl[0]?.netPnl || 0;
+    const totalPnl = tokenMetrics.reduce((sum, t) => sum + t.netPnl, 0);
+    const topTokenConcentration = totalPnl !== 0 ? Math.abs(topTokenPnl / totalPnl) : 0;
+    
+    let tokenConcentrationRisk: 'low' | 'medium' | 'high' = 'low';
+    if (topTokenConcentration > 0.7) tokenConcentrationRisk = 'high';
+    else if (topTokenConcentration > 0.4) tokenConcentrationRisk = 'medium';
+    
+    const tradeDates = new Set(closedSessions.map(s => s.closeTime?.split('T')[0]));
+    const totalTradingDays = tradeDates.size;
+    
+    const dailyPnl = new Map<string, number>();
+    closedSessions.forEach(s => {
+        if (s.closeTime) {
+            const date = s.closeTime.split('T')[0];
+            dailyPnl.set(date, (dailyPnl.get(date) || 0) + s.netPnl);
+        }
+    });
+    const profitableDays = Array.from(dailyPnl.values()).filter(pnl => pnl > 0).length;
+    const avgDailyPnl = dailyPnl.size > 0 
+        ? Array.from(dailyPnl.values()).reduce((sum, pnl) => sum + pnl, 0) / dailyPnl.size 
+        : 0;
+    
+    const avgDailyVolume = 0;
+    
+    const portfolioSharpe = tokenMetrics.length > 0 
+        ? tokenMetrics.reduce((sum, t) => sum + t.sharpeRatio, 0) / tokenMetrics.length 
+        : 0;
+    const portfolioSortino = tokenMetrics.length > 0 
+        ? tokenMetrics.reduce((sum, t) => sum + t.sortinoRatio, 0) / tokenMetrics.length 
+        : 0;
+    
+    let cumulativePnl = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    const sortedSessions = [...closedSessions].sort((a, b) => 
+        new Date(a.closeTime!).getTime() - new Date(b.closeTime!).getTime()
+    );
+    sortedSessions.forEach(s => {
+        cumulativePnl += s.netPnl;
+        if (cumulativePnl > peak) peak = cumulativePnl;
+        const drawdown = peak - cumulativePnl;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    });
+    const maxDrawdownPercent = peak > 0 ? (maxDrawdown / peak) * 100 : 0;
+    
+    const calmarRatio = maxDrawdownPercent > 0 
+        ? ((totalPnl / totalTradingDays) * 365) / maxDrawdownPercent 
+        : 0;
+    
+    const winningSessions = closedSessions.filter(s => s.netPnl > 0);
+    const losingSessions = closedSessions.filter(s => s.netPnl < 0);
+    const winRate = closedSessions.length > 0 ? winningSessions.length / closedSessions.length : 0;
+    const avgWin = winningSessions.length > 0 
+        ? winningSessions.reduce((sum, s) => sum + s.netPnl, 0) / winningSessions.length 
+        : 0;
+    const avgLoss = losingSessions.length > 0 
+        ? losingSessions.reduce((sum, s) => sum + s.netPnl, 0) / losingSessions.length 
+        : 0;
+    const expectancy = (winRate * avgWin) + ((1 - winRate) * avgLoss);
+    
+    const grossProfit = winningSessions.reduce((sum, s) => sum + s.netPnl, 0);
+    const grossLoss = Math.abs(losingSessions.reduce((sum, s) => sum + s.netPnl, 0));
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
+    
+    const recoveryFactor = maxDrawdown > 0 ? totalPnl / maxDrawdown : 0;
+    
+    let currentStreak = 0;
+    let longestWinStreak = 0;
+    let longestLossStreak = 0;
+    let tempWinStreak = 0;
+    let tempLossStreak = 0;
+    
+    sortedSessions.forEach(s => {
+        if (s.netPnl > 0) {
+            tempWinStreak++;
+            tempLossStreak = 0;
+            longestWinStreak = Math.max(longestWinStreak, tempWinStreak);
+        } else if (s.netPnl < 0) {
+            tempLossStreak++;
+            tempWinStreak = 0;
+            longestLossStreak = Math.max(longestLossStreak, tempLossStreak);
+        }
+    });
+    
+    if (sortedSessions.length > 0) {
+        const lastSession = sortedSessions[sortedSessions.length - 1];
+        if (lastSession.netPnl > 0) currentStreak = tempWinStreak;
+        else if (lastSession.netPnl < 0) currentStreak = -tempLossStreak;
+    }
+    
+    return {
+        totalTokens,
+        profitableTokens,
+        unprofitableTokens,
+        topTokenConcentration: Math.round(topTokenConcentration * 100) / 100,
+        tokenConcentrationRisk,
+        totalTradingDays,
+        profitableDays,
+        avgDailyPnl: Math.round(avgDailyPnl * 100) / 100,
+        avgDailyVolume,
+        portfolioSharpe: Math.round(portfolioSharpe * 100) / 100,
+        portfolioSortino: Math.round(portfolioSortino * 100) / 100,
+        calmarRatio: Math.round(calmarRatio * 100) / 100,
+        expectancy: Math.round(expectancy * 100) / 100,
+        profitFactor: Math.round(profitFactor * 100) / 100,
+        recoveryFactor: Math.round(recoveryFactor * 100) / 100,
+        longestWinStreak,
+        longestLossStreak,
+        currentStreak,
+        tokenMetrics,
+    };
+}
+
 // ============ Analytics ============
 
 export function calculateTradingStats(exchange: ExchangeType = 'bitmex'): TradingStats {
     const trades = loadTradesFromCSV(exchange);
     const orders = loadOrdersFromCSV(exchange);
     const wallet = loadWalletHistoryFromCSV(exchange);
+    const sessions = getPositionSessions(exchange);
+    const allSymbols = getAllTradedSymbols(exchange);
 
     const filledOrders = orders.filter(o => o.ordStatus === 'Filled').length;
     const canceledOrders = orders.filter(o => o.ordStatus === 'Canceled').length;
@@ -508,7 +880,6 @@ export function calculateTradingStats(exchange: ExchangeType = 'bitmex'): Tradin
 
     const SAT_TO_BTC = 100000000;
 
-    // For Binance, the amounts are already in USDT * SAT_TO_BTC
     const realizedPnlTxs = wallet.filter(w =>
         (w.transactType === 'RealisedPNL' || w.transactType === 'Funding') &&
         w.transactStatus === 'Completed'
@@ -562,6 +933,63 @@ export function calculateTradingStats(exchange: ExchangeType = 'bitmex'): Tradin
         .map(([month, data]) => ({ month, ...data }))
         .sort((a, b) => a.month.localeCompare(b.month));
 
+    const byToken = allSymbols.map(symbol => calculateTokenMetrics(symbol, sessions, exchange));
+    
+    const closedSessions = sessions.filter(s => s.status === 'closed' && s.closeTime);
+    const sortedSessions = [...closedSessions].sort((a, b) => 
+        new Date(a.closeTime!).getTime() - new Date(b.closeTime!).getTime()
+    );
+    
+    const startDate = sortedSessions[0]?.closeTime?.split('T')[0] || '';
+    const endDate = sortedSessions[sortedSessions.length - 1]?.closeTime?.split('T')[0] || '';
+    const totalDays = tradeDates.size;
+    
+    const dailyPnl = new Map<string, number>();
+    closedSessions.forEach(s => {
+        if (s.closeTime) {
+            const date = s.closeTime.split('T')[0];
+            dailyPnl.set(date, (dailyPnl.get(date) || 0) + s.netPnl);
+        }
+    });
+    const profitableDays = Array.from(dailyPnl.values()).filter(pnl => pnl > 0).length;
+    const unprofitableDays = Array.from(dailyPnl.values()).filter(pnl => pnl < 0).length;
+    
+    const avgHoldingTimeMs = closedSessions.length > 0 
+        ? closedSessions.reduce((sum, s) => sum + s.durationMs, 0) / closedSessions.length 
+        : 0;
+    const avgTradesPerToken = allSymbols.length > 0 ? trades.length / allSymbols.length : 0;
+    
+    let cumulativePnl = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    sortedSessions.forEach(s => {
+        cumulativePnl += s.netPnl;
+        if (cumulativePnl > peak) peak = cumulativePnl;
+        const drawdown = peak - cumulativePnl;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    });
+    const maxDrawdownPercent = peak > 0 ? (maxDrawdown / peak) * 100 : 0;
+    
+    const dailyReturns = Array.from(dailyPnl.values());
+    const avgReturn = dailyReturns.length > 0 
+        ? dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length 
+        : 0;
+    const variance = dailyReturns.length > 1 
+        ? dailyReturns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (dailyReturns.length - 1)
+        : 0;
+    const returnVolatility = Math.sqrt(variance) * Math.sqrt(365);
+    const sharpeRatio = returnVolatility > 0 ? (avgReturn * 365) / returnVolatility : 0;
+    
+    const avgTradeReturn = trades.length > 0 
+        ? closedSessions.reduce((sum, s) => sum + s.netPnl, 0) / trades.length 
+        : 0;
+    
+    const sortedByPnl = [...byToken].sort((a, b) => b.netPnl - a.netPnl);
+    const bestPerformingToken = sortedByPnl[0]?.displaySymbol || '';
+    const worstPerformingToken = sortedByPnl[sortedByPnl.length - 1]?.displaySymbol || '';
+    
+    const advanced = calculateAdvancedStats(byToken, sessions);
+
     return {
         totalTrades: trades.length,
         totalOrders: orders.length,
@@ -591,6 +1019,22 @@ export function calculateTradingStats(exchange: ExchangeType = 'bitmex'): Tradin
         tradingDays,
         avgTradesPerDay: tradingDays > 0 ? trades.length / tradingDays : 0,
         monthlyPnl,
+        byToken,
+        startDate,
+        endDate,
+        totalDays,
+        profitableDays,
+        unprofitableDays,
+        sharpeRatio: Math.round(sharpeRatio * 100) / 100,
+        maxDrawdown,
+        maxDrawdownPercent: Math.round(maxDrawdownPercent * 100) / 100,
+        avgTradeReturn: Math.round(avgTradeReturn * 100) / 100,
+        returnVolatility: Math.round(returnVolatility * 100) / 100,
+        avgHoldingTimeMs,
+        avgTradesPerToken: Math.round(avgTradesPerToken * 100) / 100,
+        bestPerformingToken,
+        worstPerformingToken,
+        advanced,
     };
 }
 

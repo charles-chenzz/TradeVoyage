@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExchangeConfig, ExchangeType, ImportResult } from '@/lib/exchange_types';
+import { resetExchangeCache } from '@/lib/data_loader';
 import { exportBitmexData, testBitmexConnection } from '@/lib/bitmex_exporter';
 import { exportBinanceData, testBinanceConnection } from '@/lib/binance_exporter';
 import { exportOkxData, testOkxConnection } from '@/lib/okx_exporter';
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
                 );
         }
 
+        resetExchangeCache(exchange);
         return NextResponse.json(result);
     } catch (error: any) {
         return NextResponse.json(
@@ -131,5 +133,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
 

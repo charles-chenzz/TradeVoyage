@@ -163,6 +163,178 @@ async function binanceRequest(
     });
 }
 
+type DiscoverLog = (message: string, type?: 'info' | 'warning' | 'success') => Promise<void> | void;
+
+async function discoverSymbolsFromIncome(
+    apiKey: string,
+    apiSecret: string,
+    startDate: string,
+    endDate: string,
+    log?: DiscoverLog
+): Promise<Set<string>> {
+    const symbols = new Set<string>();
+    const startTime = new Date(startDate).getTime();
+    const endTime = new Date(endDate).getTime();
+    const limit = 1000;
+
+    const logMsg: DiscoverLog = log
+        ? log
+        : (message: string, type?: 'info' | 'warning' | 'success') => {
+            if (type === 'warning') console.warn(message);
+            else console.log(message);
+        };
+
+    // Use commission records because every trade should generate a commission entry
+    const incomeType = 'COMMISSION';
+
+    let totalRecords = 0;
+
+    let windowStart = startTime;
+    while (windowStart < endTime) {
+        const windowEnd = Math.min(windowStart + SEVEN_DAYS_MS - 1, endTime);
+        let pageStart = windowStart;
+
+        while (pageStart <= windowEnd) {
+            const params: BinanceRequestParams = {
+                incomeType,
+                startTime: pageStart,
+                endTime: windowEnd,
+                limit,
+            };
+
+            let income: any[] = [];
+            try {
+                income = await binanceRequest(apiKey, apiSecret, 'GET', '/fapi/v1/income', params);
+            } catch (error: any) {
+                await logMsg(`   ⚠️ Could not fetch income history: ${error.message}`, 'warning');
+                // Break out of the current window on error to avoid infinite retry
+                break;
+            }
+
+            if (!income || !Array.isArray(income) || income.length === 0) {
+                break;
+            }
+
+            totalRecords += income.length;
+            for (const item of income) {
+                if (item.symbol) symbols.add(item.symbol);
+            }
+
+            const lastTime = Number(income[income.length - 1]?.time);
+            if (!Number.isFinite(lastTime) || lastTime <= pageStart) {
+                break;
+            }
+
+            if (income.length < limit) {
+                break;
+            }
+
+            pageStart = lastTime + 1;
+            await sleep(REQUEST_DELAY);
+        }
+
+        windowStart = windowEnd + 1;
+        await sleep(REQUEST_DELAY);
+    }
+
+    if (totalRecords > 0) {
+        await logMsg(`   ✓ Scanned ${totalRecords} commission records`, 'success');
+    }
+
+    return symbols;
+}
+
+async function getTradedSymbols(
+    apiKey: string,
+    apiSecret: string,
+    startDate: string,
+    endDate: string
+): Promise<string[]> {
+    console.log('   🔍 Discovering traded symbols from account history...');
+    
+    const symbols = new Set<string>();
+    
+    try {
+        const incomeSymbols = await discoverSymbolsFromIncome(apiKey, apiSecret, startDate, endDate);
+        incomeSymbols.forEach(s => symbols.add(s));
+    } catch (error: any) {
+        console.warn(`   ⚠️ Could not fetch income history: ${error.message}`);
+    }
+    
+    await sleep(REQUEST_DELAY);
+    
+    try {
+        const params: BinanceRequestParams = {};
+        const positions = await binanceRequest(apiKey, apiSecret, 'GET', '/fapi/v2/positionRisk', params);
+        
+        if (positions && Array.isArray(positions)) {
+            for (const pos of positions) {
+                if (pos.symbol && parseFloat(pos.positionAmt) !== 0) {
+                    symbols.add(pos.symbol);
+                }
+            }
+        }
+    } catch (error: any) {
+        console.warn(`   ⚠️ Could not fetch positions: ${error.message}`);
+    }
+    
+    const result = Array.from(symbols).filter(s => s.endsWith('USDT')).sort();
+    
+    if (result.length === 0) {
+        console.log('   ⚠️ No traded symbols found, falling back to BTCUSDT, ETHUSDT');
+        return ['BTCUSDT', 'ETHUSDT'];
+    }
+    
+    console.log(`   ✓ Found ${result.length} traded symbols: ${result.slice(0, 5).join(', ')}${result.length > 5 ? '...' : ''}`);
+    return result;
+}
+
+async function getTradedSymbolsWithProgress(
+    apiKey: string,
+    apiSecret: string,
+    startDate: string,
+    endDate: string,
+    log: LogCallback
+): Promise<string[]> {
+    await log('   🔍 Discovering traded symbols from account history...', 'info');
+    
+    const symbols = new Set<string>();
+    
+    try {
+        const incomeSymbols = await discoverSymbolsFromIncome(apiKey, apiSecret, startDate, endDate, log);
+        incomeSymbols.forEach(s => symbols.add(s));
+    } catch (error: any) {
+        await log(`   ⚠️ Could not fetch income history: ${error.message}`, 'warning');
+    }
+    
+    await sleep(REQUEST_DELAY);
+    
+    try {
+        const params: BinanceRequestParams = {};
+        const positions = await binanceRequest(apiKey, apiSecret, 'GET', '/fapi/v2/positionRisk', params);
+        
+        if (positions && Array.isArray(positions)) {
+            for (const pos of positions) {
+                if (pos.symbol && parseFloat(pos.positionAmt) !== 0) {
+                    symbols.add(pos.symbol);
+                }
+            }
+        }
+    } catch (error: any) {
+        await log(`   ⚠️ Could not fetch positions: ${error.message}`, 'warning');
+    }
+    
+    const result = Array.from(symbols).filter(s => s.endsWith('USDT')).sort();
+    
+    if (result.length === 0) {
+        await log('   ⚠️ No traded symbols found, falling back to BTCUSDT, ETHUSDT', 'warning');
+        return ['BTCUSDT', 'ETHUSDT'];
+    }
+    
+    await log(`   ✓ Found ${result.length} traded symbols: ${result.slice(0, 5).join(', ')}${result.length > 5 ? '...' : ''}`, 'success');
+    return result;
+}
+
 // Export Binance Orders (All Orders History)
 // NOTE: Binance API only allows fetching orders from the last 90 days!
 async function exportBinanceOrders(config: ExchangeConfig, forceRefetch: boolean = false): Promise<number> {
@@ -177,9 +349,9 @@ async function exportBinanceOrders(config: ExchangeConfig, forceRefetch: boolean
     console.log('\n📋 Exporting Binance Order History...');
     console.log('   ⚠️ Note: Binance API only allows fetching orders from the last 90 days');
     
-    const { apiKey, apiSecret, endDate } = config;
+    const { apiKey, apiSecret, startDate, endDate } = config;
     const allOrders: any[] = [];
-    const symbols = ['BTCUSDT', 'ETHUSDT'];
+    const symbols = await getTradedSymbols(apiKey, apiSecret, startDate, endDate);
     
     // Binance only allows fetching the last 90 days of orders
     const now = Date.now();
@@ -261,7 +433,7 @@ async function exportBinanceTrades(config: ExchangeConfig, forceRefetch: boolean
     
     const { apiKey, apiSecret, startDate, endDate } = config;
     const allExecutions: UnifiedExecution[] = [];
-    const symbols = ['BTCUSDT', 'ETHUSDT'];
+    const symbols = await getTradedSymbols(apiKey, apiSecret, startDate, endDate);
     
     const startTime = new Date(startDate).getTime();
     const endTime = new Date(endDate).getTime();
@@ -497,7 +669,7 @@ async function getBinanceAccountInfo(config: ExchangeConfig): Promise<UnifiedAcc
             })),
         };
         
-        console.log(`   ✅ Wallet Balance: ${summary.wallet.walletBalance.toFixed(2)} USDT`);
+        console.log(`   ✅ Wallet Balance: ${(summary.wallet.walletBalance ?? 0).toFixed(2)} USDT`);
         console.log(`   ✅ Open Positions: ${positions.length}`);
         
         return summary;
@@ -665,11 +837,10 @@ function estimateTime(startDate: string, endDate: string, forceRefetch: boolean)
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
     const days = Math.ceil((end - start) / (24 * 60 * 60 * 1000));
-    const windows = Math.ceil(days / 7); // 7-day windows
+    const windows = Math.ceil(days / 7);
     
-    // Estimate: ~2 seconds per window for trades, ~1 for income, per symbol
-    const symbols = 2; // BTCUSDT, ETHUSDT
-    const baseTime = forceRefetch ? (windows * 3 * symbols) : 5; // seconds
+    const symbols = 5;
+    const baseTime = forceRefetch ? (windows * 3 * symbols) : 5;
     
     if (baseTime < 60) {
         return { estimate: `~${baseTime} seconds`, windows };
@@ -708,7 +879,7 @@ export async function exportBinanceDataWithProgress(
         await log('', 'info');
         await log('👤 Fetching account info...', 'info');
         const accountSummary = await getBinanceAccountInfo(config);
-        await log(`✓ Wallet Balance: ${accountSummary.wallet.walletBalance.toFixed(2)} USDT`, 'success');
+        await log(`✓ Wallet Balance: ${(accountSummary.wallet.walletBalance ?? 0).toFixed(2)} USDT`, 'success');
         await log(`✓ Open Positions: ${accountSummary.positions.length}`, 'success');
         
         // Export orders
@@ -828,9 +999,9 @@ async function exportBinanceOrdersWithProgress(
         return 0;
     }
     
-    const { apiKey, apiSecret } = config;
+    const { apiKey, apiSecret, startDate, endDate } = config;
     const allOrders: any[] = [];
-    const symbols = ['BTCUSDT', 'ETHUSDT'];
+    const symbols = await getTradedSymbolsWithProgress(apiKey, apiSecret, startDate, endDate, log);
     
     for (const symbol of symbols) {
         await sleep(REQUEST_DELAY);
@@ -883,7 +1054,7 @@ async function exportBinanceTradesWithProgress(
     
     const { apiKey, apiSecret, startDate, endDate } = config;
     const allExecutions: UnifiedExecution[] = [];
-    const symbols = ['BTCUSDT', 'ETHUSDT'];
+    const symbols = await getTradedSymbolsWithProgress(apiKey, apiSecret, startDate, endDate, log);
     
     const startTime = new Date(startDate).getTime();
     const endTime = new Date(endDate).getTime();

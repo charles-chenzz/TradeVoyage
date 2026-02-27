@@ -151,6 +151,91 @@ export interface TradingStats {
     tradingDays: number;
     avgTradesPerDay: number;
     monthlyPnl: { month: string; pnl: number; funding: number; trades: number }[];
+    
+    byToken: TokenMetrics[];
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    profitableDays: number;
+    unprofitableDays: number;
+    sharpeRatio: number;
+    maxDrawdown: number;
+    maxDrawdownPercent: number;
+    avgTradeReturn: number;
+    returnVolatility: number;
+    avgHoldingTimeMs: number;
+    avgTradesPerToken: number;
+    bestPerformingToken: string;
+    worstPerformingToken: string;
+    advanced: AdvancedStats;
+}
+
+// 单个代币的详细统计指标
+export interface TokenMetrics {
+    symbol: string;
+    displaySymbol: string;
+    totalSessions: number;
+    winningSessions: number;
+    losingSessions: number;
+    winRate: number;
+    grossProfit: number;
+    grossLoss: number;
+    netPnl: number;
+    totalFunding: number;
+    totalFees: number;
+    sharpeRatio: number;
+    sortinoRatio: number;
+    maxDrawdown: number;
+    maxDrawdownPercent: number;
+    volatility: number;
+    avgHoldingTimeHours: number;
+    bestSession: { pnl: number; duration: number; date: string };
+    worstSession: { pnl: number; duration: number; date: string };
+    longSessions: number;
+    shortSessions: number;
+    longPnl: number;
+    shortPnl: number;
+    longWinRate: number;
+    shortWinRate: number;
+    avgDailyTrades: number;
+    mostActiveHour: number;
+    mostActiveDay: string;
+    firstTradeDate: string;
+    lastTradeDate: string;
+    pnlTrend: 'up' | 'down' | 'neutral';
+    volumeTrend: 'up' | 'down' | 'neutral';
+}
+
+// 兼容旧名称
+export type TokenStats = TokenMetrics;
+
+// 代币筛选参数（简化版，去掉日期筛选）
+export interface TokenFilter {
+    symbols?: string[];
+    side?: 'long' | 'short' | 'both';
+}
+
+// 高级统计指标（整体账户层面）
+export interface AdvancedStats {
+    totalTokens: number;
+    profitableTokens: number;
+    unprofitableTokens: number;
+    topTokenConcentration: number;
+    tokenConcentrationRisk: 'low' | 'medium' | 'high';
+    totalTradingDays: number;
+    profitableDays: number;
+    avgDailyPnl: number;
+    avgDailyVolume: number;
+    portfolioSharpe: number;
+    portfolioSortino: number;
+    calmarRatio: number;
+    expectancy: number;
+    profitFactor: number;
+    recoveryFactor: number;
+    longestWinStreak: number;
+    longestLossStreak: number;
+    currentStreak: number;
+    tokenMetrics: TokenMetrics[];
 }
 
 // ============ Position Session Types ============
