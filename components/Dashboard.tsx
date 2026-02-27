@@ -24,8 +24,6 @@ import {
     History,
     BarChart3,
     TrendingUp,
-    Activity,
-    Settings,
     Sun,
     Moon,
     Github,
@@ -428,34 +426,6 @@ export function Dashboard() {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            {/* Exchange Selector */}
-                            <select
-                                value={selectedExchange || ''}
-                                onChange={(e) => {
-                                    setSelectedExchange(e.target.value as ExchangeType);
-                                    setPage(1);
-                                }}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                            >
-                                {availableExchanges.map(ex => (
-                                    <option key={ex} value={ex}>{EXCHANGE_DISPLAY_NAMES[ex]}</option>
-                                ))}
-                            </select>
-
-                            {/* Symbol Selector */}
-                            <select
-                                value={selectedSymbol}
-                                onChange={(e) => {
-                                    setSelectedSymbol(e.target.value);
-                                    setPage(1);
-                                }}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                            >
-                                {symbolOptions.map((sym: string) => (
-                                    <option key={sym} value={sym}>{sym}</option>
-                                ))}
-                            </select>
-
                             {/* View Mode Tabs */}
                             <div className="flex bg-gray-100 rounded-lg p-1">
                                 <button
@@ -513,13 +483,13 @@ export function Dashboard() {
                                 )}
                             </button>
 
-                            {/* Settings Link */}
-                            <Link
+                            {/* Settings Link - temporarily hidden, AI settings moved to AI tab */}
+                            {/* <Link
                                 href="/settings"
                                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <Settings className="w-5 h-5" />
-                            </Link>
+                            </Link> */}
                         </div>
                     </div>
                 </div>
@@ -528,13 +498,20 @@ export function Dashboard() {
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="space-y-8">
-                    {/* API Connection */}
-                    <ApiConnection
-                        onDataFetched={handleDataFetched}
-                        totalTrades={stats?.totalTrades}
-                        tradingDays={stats?.tradingDays}
-                        avgTradesPerDay={stats?.avgTradesPerDay}
-                    />
+                    {/* API Connection - only show in overview mode */}
+                    {viewMode === 'overview' && (
+                        <ApiConnection
+                            onDataFetched={handleDataFetched}
+                            totalTrades={stats?.totalTrades}
+                            tradingDays={stats?.tradingDays}
+                            avgTradesPerDay={stats?.avgTradesPerDay}
+                            selectedExchange={selectedExchange}
+                            onExchangeChange={(ex) => {
+                                setSelectedExchange(ex);
+                                setPage(1);
+                            }}
+                        />
+                    )}
 
                     {/* Overview Mode */}
                     {viewMode === 'overview' && stats && (
@@ -545,8 +522,8 @@ export function Dashboard() {
                             {/* Performance Chart - Figma Style */}
                             <PerformanceChart data={equityCurve} exchange={selectedExchange!} loading={loading} />
 
-                            {/* Recent Trades Table - Figma Style */}
-                            <TradesTable trades={trades.slice(0, 10)} exchange={selectedExchange!} loading={loading} />
+                            {/* Recent Trades Table - Figma Style (temporarily hidden) */}
+                            {/* <TradesTable trades={trades.slice(0, 10)} exchange={selectedExchange!} loading={loading} /> */}
 
                             {/* Token Metrics Table */}
                             {stats.byToken && stats.byToken.length > 0 && (
@@ -591,6 +568,41 @@ export function Dashboard() {
                                 />
                             ) : (
                                 <>
+                                    {/* Exchange & Symbol Selector */}
+                                    <div className="bg-white rounded-lg shadow p-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-sm font-medium text-gray-700">Exchange:</label>
+                                                <select
+                                                    value={selectedExchange || ''}
+                                                    onChange={(e) => {
+                                                        setSelectedExchange(e.target.value as ExchangeType);
+                                                        setPage(1);
+                                                    }}
+                                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                                >
+                                                    {availableExchanges.map(ex => (
+                                                        <option key={ex} value={ex}>{EXCHANGE_DISPLAY_NAMES[ex]}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-sm font-medium text-gray-700">Symbol:</label>
+                                                <select
+                                                    value={selectedSymbol}
+                                                    onChange={(e) => {
+                                                        setSelectedSymbol(e.target.value);
+                                                        setPage(1);
+                                                    }}
+                                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                                >
+                                                    {symbolOptions.map((sym: string) => (
+                                                        <option key={sym} value={sym}>{sym}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className="flex justify-between items-center">
                                         <h2 className="text-xl font-bold text-gray-900">Position History</h2>
                                         <div className="flex items-center gap-2">
@@ -625,6 +637,41 @@ export function Dashboard() {
                     {/* Trades Mode */}
                     {viewMode === 'trades' && (
                         <div className="space-y-6">
+                            {/* Exchange & Symbol Selector */}
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-sm font-medium text-gray-700">Exchange:</label>
+                                        <select
+                                            value={selectedExchange || ''}
+                                            onChange={(e) => {
+                                                setSelectedExchange(e.target.value as ExchangeType);
+                                                setPage(1);
+                                            }}
+                                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        >
+                                            {availableExchanges.map(ex => (
+                                                <option key={ex} value={ex}>{EXCHANGE_DISPLAY_NAMES[ex]}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-sm font-medium text-gray-700">Symbol:</label>
+                                        <select
+                                            value={selectedSymbol}
+                                            onChange={(e) => {
+                                                setSelectedSymbol(e.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        >
+                                            {symbolOptions.map((sym: string) => (
+                                                <option key={sym} value={sym}>{sym}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="flex justify-between items-center">
                                 <h2 className="text-xl font-bold text-gray-900">Trade Log</h2>
                                 <div className="flex items-center gap-2">

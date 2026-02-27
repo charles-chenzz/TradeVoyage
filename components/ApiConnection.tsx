@@ -36,9 +36,11 @@ interface ApiConnectionProps {
     totalTrades?: number;
     tradingDays?: number;
     avgTradesPerDay?: number;
+    selectedExchange?: ExchangeType | null;
+    onExchangeChange?: (exchange: ExchangeType) => void;
 }
 
-export function ApiConnection({ onDataFetched, isRefreshing = false, totalTrades, tradingDays, avgTradesPerDay }: ApiConnectionProps) {
+export function ApiConnection({ onDataFetched, isRefreshing = false, totalTrades, tradingDays, avgTradesPerDay, selectedExchange, onExchangeChange }: ApiConnectionProps) {
     const [showSettings, setShowSettings] = useState(false);
     const [exchange, setExchange] = useState<ExchangeType>('binance');
     const [apiKey, setApiKey] = useState('');
@@ -55,6 +57,16 @@ export function ApiConnection({ onDataFetched, isRefreshing = false, totalTrades
 
     const logsEndRef = useRef<HTMLDivElement>(null);
     const eventSourceRef = useRef<EventSource | null>(null);
+
+    // Use external exchange if provided, otherwise use internal state
+    const currentExchange = selectedExchange || exchange;
+
+    // Sync internal exchange with external when it changes
+    useEffect(() => {
+        if (selectedExchange && selectedExchange !== exchange) {
+            setExchange(selectedExchange);
+        }
+    }, [selectedExchange]);
 
     // Load saved config on mount
     useEffect(() => {
@@ -215,6 +227,12 @@ export function ApiConnection({ onDataFetched, isRefreshing = false, totalTrades
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Current Exchange */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">
+                            {EXCHANGE_DISPLAY_NAMES[exchange]}
+                        </span>
+                    </div>
                     {/* Connection Status */}
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50">
                         <div className={`w-2 h-2 rounded-full ${
@@ -260,7 +278,11 @@ export function ApiConnection({ onDataFetched, isRefreshing = false, totalTrades
                         </label>
                         <select
                             value={exchange}
-                            onChange={(e) => setExchange(e.target.value as ExchangeType)}
+                            onChange={(e) => {
+                                const newExchange = e.target.value as ExchangeType;
+                                setExchange(newExchange);
+                                onExchangeChange?.(newExchange);
+                            }}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
                         >
                             {EXCHANGES.map((ex) => (
